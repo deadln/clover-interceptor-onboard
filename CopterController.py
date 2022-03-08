@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-import math
 import rospy
 from clover import srv
 from std_srvs.srv import Trigger
-import numpy as np
 from std_msgs.msg import String
 
-FREQ = 10
+import numpy as np
+import math
+import random
+
+
 
 node_name = "copter_node"
 
@@ -26,16 +28,30 @@ class CopterController():
 
         rospy.on_shutdown(self.on_shutdown_cb)
 
+        self.FREQUENCY = 10
+        self.X_VECT = np.array([1, 0, 0])
+
+        # TODO: парсить данные о полётной зоне из txt или launch файла
+        self.low_left_corner = np.array([0.0, 0.0])
+        self.up_right_corner = np.array([3.0, 6.0])
+        self.min_height = 0.8
+        self.max_height = 4.2
         self.state = ""
         self.patrol_target = None
+
 
     def offboard_loop(self):
         self.takeoff()
 
-        rate = rospy.Rate(FREQ)
+        rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():
             if self.state == "patrol_navigate":
-                
+                if self.patrol_target is None:
+                    self.set_patrol_target()
+                    self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_VECT, self.patrol_target))
+                elif:
+
+
 
             rate.sleep()
 
@@ -52,6 +68,22 @@ class CopterController():
             if math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance:
                 break
             rospy.sleep(0.2)
+
+    def set_patrol_target(self):
+        self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
+                         random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
+                         random.uniform(self.min_height, self.max_height)])
+
+    def get_yaw_angle(self, vector_1, vector_2):
+        unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+        unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+        dot_product = np.dot(unit_vector_1, unit_vector_2)
+        angle = np.arccos(dot_product)
+        if vector_2[1] < 0:
+            angle *= -1
+        return angle
+
+    def is_patrol_target_
 
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")

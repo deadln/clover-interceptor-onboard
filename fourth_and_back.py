@@ -15,8 +15,8 @@ set_attitude = rospy.ServiceProxy('set_attitude', srv.SetAttitude)
 set_rates = rospy.ServiceProxy('set_rates', srv.SetRates)
 land = rospy.ServiceProxy('land', Trigger)
 
-p2 = np.array([1.5, 0.5, 2.0])
-p1 = np.array([1.5, 5.5, 2.0])
+p2 = np.array([0.0, 1.0, 2.0])
+p1 = np.array([3.5, 1.0, 2.0])
 
 def navigate_wait(x=0, y=0, z=2, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
     navigate(x=x, y=y, z=z, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
