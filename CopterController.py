@@ -30,8 +30,8 @@ class CopterController():
 
         self.FREQUENCY = 10
         self.X_VECT = np.array([1, 0, 0])
-        self.SPIN_RATE = 0.7853981633974483
         self.SPIN_TIME = 8
+        self.SPIN_RATE = math.pi / self.SPIN_TIME
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
         self.low_left_corner = np.array([0.0, 0.0])
@@ -48,14 +48,15 @@ class CopterController():
 
         rate = rospy.Rate(self.FREQUENCY)
         while True:  # not rospy.is_shutdown():
-            if self.state == "patrol_navigate":
+            if self.state == "patrol_navigate":  # Полёт к точке патрулирования
                 if self.patrol_target is None:
                     self.set_patrol_target()
                     self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_VECT, self.patrol_target))
                 elif self.is_navigate_target_reached():
                     # self.patrol_target = None
                     self.state = "patrol_spin"
-            if self.state == "patrol_spin":
+
+            if self.state == "patrol_spin":  # Вращение в точке патрулирования
                 if self.spin_start is None:
                     self.spin_start = rospy.get_time()
                     self.navigate(yaw=float('nan'), yaw_rate=self.SPIN_RATE)
@@ -63,6 +64,14 @@ class CopterController():
                     self.spin_start = None
                     self.state = "patrol_navigate"
 
+            if self.state == "pursuit":  # Состояние преследования цели
+                pass
+
+            if self.state == "search":  # Поиск утерянной цели
+                pass
+
+            if self.state == "rtb":  # Возвращение на базу
+                pass
 
             # rate.sleep()
 
