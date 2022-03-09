@@ -49,8 +49,11 @@ class CopterController():
                 if self.patrol_target is None:
                     self.set_patrol_target()
                     self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_VECT, self.patrol_target))
-                elif:
-
+                elif self.is_navigate_target_reached():
+                    self.patrol_target = None
+                    # self.state = "patrol_spin"
+            if self.state == "patrol_spin":
+                pass
 
 
             rate.sleep()
@@ -64,8 +67,7 @@ class CopterController():
         self.navigate(x=x, y=y, z=z, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
 
         while not rospy.is_shutdown():
-            telem = self.get_telemetry(frame_id='navigate_target')
-            if math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance:
+            if self.is_navigate_target_reached(tolerance):
                 break
             rospy.sleep(0.2)
 
@@ -83,7 +85,9 @@ class CopterController():
             angle *= -1
         return angle
 
-    def is_patrol_target_
+    def is_navigate_target_reached(self, tolerance):
+        telem = self.get_telemetry(frame_id='navigate_target')
+        return math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance
 
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")
