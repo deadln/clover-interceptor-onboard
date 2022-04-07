@@ -17,14 +17,14 @@ class CopterController():
         rospy.init_node(node_name)
         rospy.loginfo(node_name + " started")
 
-        self.get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
-        self.navigate = rospy.ServiceProxy('navigate', srv.Navigate)
-        self.navigate_global = rospy.ServiceProxy('navigate_global', srv.NavigateGlobal)
-        self.set_position = rospy.ServiceProxy('set_position', srv.SetPosition)
-        self.set_velocity = rospy.ServiceProxy('set_velocity', srv.SetVelocity)
-        self.set_attitude = rospy.ServiceProxy('set_attitude', srv.SetAttitude)
-        self.set_rates = rospy.ServiceProxy('set_rates', srv.SetRates)
-        self.land = rospy.ServiceProxy('land', Trigger)
+        self.__get_telemetry__ = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
+        self.__navigate__ = rospy.ServiceProxy('navigate', srv.Navigate)
+        self.__navigate_global__ = rospy.ServiceProxy('navigate_global', srv.NavigateGlobal)
+        self.__set_position__ = rospy.ServiceProxy('set_position', srv.SetPosition)
+        self.__set_velocity__ = rospy.ServiceProxy('set_velocity', srv.SetVelocity)
+        self.__set_attitude__ = rospy.ServiceProxy('set_attitude', srv.SetAttitude)
+        self.__set_rates__ = rospy.ServiceProxy('set_rates', srv.SetRates)
+        self.__land__ = rospy.ServiceProxy('land', Trigger)
 
         rospy.on_shutdown(self.on_shutdown_cb)
 
@@ -41,6 +41,10 @@ class CopterController():
         self.state = ""
         self.patrol_target = None
         self.spin_start = None
+        self.pursuit_target = None
+
+    def get_position(self, frame_id='aruco_map'):
+        telemetry = self.__get_telemetry__(frame_id=frame_id)
 
 
     def offboard_loop(self):
@@ -64,8 +68,9 @@ class CopterController():
                     self.spin_start = None
                     self.state = "patrol_navigate"
 
-            if self.state == "pursuit":  # Состояние преследования цели
-                pass
+            if self.state == "pursuit":  # Состояние преследования цели, которая однозначно обнаружена
+                telemetry = self.get_telemetry(frame_id='aruco_map')
+                telemetry = np.array([])
 
             if self.state == "search":  # Поиск утерянной цели
                 pass
