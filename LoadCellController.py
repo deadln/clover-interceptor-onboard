@@ -39,7 +39,7 @@ def readCount():
 if __name__ == '__main__':
     rospy.init_node(node_name)
     rospy.loginfo(node_name + " started")
-    pub = rospy.Publisher("load_cell", Bool, queue_size=10)
+    pub = rospy.Publisher("load_cell/weight", Bool, queue_size=10)
 
     gpio.setmode(gpio.BCM)
     sample = readCount()
@@ -53,7 +53,6 @@ if __name__ == '__main__':
                 pub.publish(True)
             else:
                 pub.publish(False)
-            # print(1)
             r.sleep()
     except KeyboardInterrupt:
         print("Stop")
