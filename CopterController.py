@@ -3,6 +3,8 @@ import rospy
 from clover import srv
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
 
 import numpy as np
 import math
@@ -22,25 +24,34 @@ class CopterController():
         self.__set_velocity__ = rospy.ServiceProxy('set_velocity', srv.SetVelocity)
         self.__land__ = rospy.ServiceProxy('land', Trigger)
 
-        rospy.on_shutdown(self.on_shutdown_cb)
+        self.bridge = CvBridge()
 
         self.FREQUENCY = 10
+        self.DEPTH_QUEUE_SIZE = 500
         self.X_VECT = np.array([1, 0, 0])
         self.SPIN_TIME = 8
         self.SPIN_RATE = math.pi / self.SPIN_TIME
         self.PATROL_SPEED = 0.3
         self.INTERCEPTION_SPEED = 0.5
 
-        # TODO: парсить данные о полётной зоне из txt или launch файла, сделать на три координаты
-        self.low_left_corner = np.array([0.0, 0.0])
-        self.up_right_corner = np.array([3.0, 6.0])
-        self.min_height = 0.8
-        self.max_height = 4.2
+        # TODO: парсить данные о полётной зоне из txt или launch файла
+        self.low_left_corner = np.array([0.0, 0.0, 0.8])
+        self.up_right_corner = np.array([3.0, 6.0, 4.2])
+        # self.min_height = 0.8
+        # self.max_height = 4.2
         self.state = ""
         self.patrol_target = None
         self.spin_start = None
         self.pursuit_target = None
         self.pursuit_target_detections = []
+        self.depth_images = []
+
+        self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
+        # rospy.Subscriber('drone_detection/target', String, self.target_callback)
+        rospy.Subscriber('drone_detection/target', String, self.target_callback_test)
+        rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
+
+        rospy.on_shutdown(self.on_shutdown_cb)
 
     def get_telemetry(self, frame_id='aruco_map'):
         telemetry = self.__get_telemetry__(frame_id=frame_id)
@@ -88,7 +99,7 @@ class CopterController():
 
             if self.state == "pursuit":  # Состояние преследования цели, которая однозначно обнаружена
                 position = self.get_position(frame_id='aruco_map')
-                error = self.pursuit_target - position
+                error = self.pursuit_target + np.array([0 ,0 ,1]) - position
                 velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
                 self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_VECT, self.pursuit_target))
 
@@ -118,7 +129,7 @@ class CopterController():
     def set_patrol_target(self):
         self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
                          random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
-                         random.uniform(self.min_height, self.max_height)])
+                         random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
 
     def get_yaw_angle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -129,9 +140,9 @@ class CopterController():
             angle *= -1
         return angle
 
-    def return_to_patrol_zone(self):  # TODO: сделать на три координаты
+    def return_to_patrol_zone(self):
         position = self.get_position()
-        velocity = np.zeros(2)
+        velocity = np.zeros(3)
         velocity += list(map(int, position < self.low_left_corner))
         velocity += list(map(int, position > self.up_right_corner))
         velocity *= self.INTERCEPTION_SPEED
@@ -145,6 +156,46 @@ class CopterController():
     def is_inside_patrol_zone(self):
         position = self.get_position()
         return all(position >= self.low_left_corner) and all(position <= self.up_right_corner)
+
+
+    def depth_image_callback(self, message):
+        def convert_depth_image(ros_image):
+            depth_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding="passthrough")
+            depth_array = np.array(depth_image, dtype=np.float32) * 0.001  # расстояние в метрах
+            return depth_array
+            # im = Image.fromarray(depth_array)
+            # im = im.convert("L")
+            # idx = str(i).zfill(4)
+            # im.save(root+"/depth/frame{index}.png".format(index = idx))
+            # i += 1
+            # print("depth_idx: ", i)
+        self.depth_images = self.depth_images[:min(len(self.depth_images), self.DEPTH_QUEUE_SIZE)]
+        self.depth_images.append({'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs}, 'image': convert_depth_image(message)})
+
+    def target_callback(self, message):  # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у
+        message = message.data.split()        # TODO: 2. Сделать перевод координат цели на изображении в глобальные координаты
+        secs = int(message[2])
+        nsecs = int(message[3])
+        i = 0
+        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] != secs:
+            i += 1
+        if i == len(self.depth_images):
+            return
+        start = i
+        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] == secs:
+            i += 1
+        end = i
+        min_i = start
+        for i in range(start, end):
+            if abs(self.depth_images[i]['timestamp']['nsecs'] - nsecs) < abs(self.depth_images[min_i]['timestamp']['nsecs'] - nsecs):
+                min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
+        self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
+
+
+
+    def target_callback_test(self, message):
+        message = message.split()
+        self.pursuit_target = np.array(list(map(float, message[:2])))
 
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")
@@ -160,3 +211,9 @@ if __name__ == '__main__':
         pass
 
     rospy.spin()
+
+# TODO:
+# 1. Сделать функцию преобразования координат цели на изображении в координаты относительно дрона, а затем в глобальные
+# координаты
+# 2. Сделать функцию определения момента для явного преследования цели
+# 3. Сделать функцию проверки "подозреваемых" областей
