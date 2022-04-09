@@ -28,6 +28,10 @@ class CopterController():
 
         self.FREQUENCY = 10
         self.DEPTH_QUEUE_SIZE = 500
+        self.CAMERA_ANGLE_H = 1.5009831567151235
+        self.CAMERA_ANGLE_V = 0.9948376736367679
+
+
         self.X_VECT = np.array([1, 0, 0])
         self.SPIN_TIME = 8
         self.SPIN_RATE = math.pi / self.SPIN_TIME
@@ -161,7 +165,7 @@ class CopterController():
     def depth_image_callback(self, message):
         def convert_depth_image(ros_image):
             depth_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding="passthrough")
-            depth_array = np.array(depth_image, dtype=np.float32) * 0.001  # расстояние в метрах
+            depth_array = np.array(depth_image, dtype=np.float32) * 0.001  # расстояние в метрах 0.001
             return depth_array
             # im = Image.fromarray(depth_array)
             # im = im.convert("L")
@@ -170,26 +174,60 @@ class CopterController():
             # i += 1
             # print("depth_idx: ", i)
         self.depth_images = self.depth_images[:min(len(self.depth_images), self.DEPTH_QUEUE_SIZE)]
-        self.depth_images.append({'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs}, 'image': convert_depth_image(message)})
+        self.depth_images.append({'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs},
+                                  'image': convert_depth_image(message)})
 
-    def target_callback(self, message):  # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у
-        message = message.data.split()        # TODO: 2. Сделать перевод координат цели на изображении в глобальные координаты
+    def target_callback(self, message):
+        def draw_cross(img, x, y):
+            CROSS_HALF = 4
+            CROSS_HALF_LEN = 30
+            for i in range(y - CROSS_HALF, y + CROSS_HALF + 1):
+                for j in range(x - CROSS_HALF, x + CROSS_HALF + 1):
+                    # Up
+                    k = 0
+                    while i - k >= 0 and k < CROSS_HALF_LEN:
+                        img[i - k][j] = 1000
+                        k += 1
+                    # Down
+                    k = 0
+                    while i + k < 480 and k < CROSS_HALF_LEN:
+                        img[i + k][j] = 1000
+                        k += 1
+                    # Left
+                    k = 0
+                    while j - k >= 0 and k < CROSS_HALF_LEN:
+                        img[i][j - k] = 1000
+                        k += 1
+                    # Right
+                    k = 0
+                    while j + k < 640 and k < CROSS_HALF_LEN:
+                        img[i][j + k] = 1000
+                        k += 1
+            return img
+        # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у +
+        # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты
+        # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
+        message = message.data.split()
         secs = int(message[2])
         nsecs = int(message[3])
         i = 0
-        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] != secs:
+        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] > secs:
             i += 1
-        if i == len(self.depth_images):
-            return
         start = i
         while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] == secs:
             i += 1
         end = i
+        if start >= len(self.depth_images) or end >= len(self.depth_images):
+            return
         min_i = start
         for i in range(start, end):
             if abs(self.depth_images[i]['timestamp']['nsecs'] - nsecs) < abs(self.depth_images[min_i]['timestamp']['nsecs'] - nsecs):
                 min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
-        self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
+        # self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
+
+        x_pix = int(message[0])
+        y_pix = int(message[1])
+        self.depth_debug.publish(self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
 
 
 
