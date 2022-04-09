@@ -204,6 +204,26 @@ class CopterController():
                         img[i][j + k] = 1000
                         k += 1
             return img
+
+        def get_mean_range(img, x, y):
+            FIND_RADIUS = 8
+            x_start = max(x - FIND_RADIUS, 0)
+            x_end = min(x + FIND_RADIUS, 639)
+            y_start = max(y - FIND_RADIUS, 0)
+            y_end = min(y + FIND_RADIUS, 479)
+
+            length = 0
+            point_count = 0
+            for i in range(y_start, y_end + 1):
+                for j in range(x_start, x_end + 1):
+                    if img[i][j] > 0:
+                        length += img[i][j]
+                        point_count += 1
+            try:
+                return length / point_count
+            except ZeroDivisionError:
+                return 0
+
         # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у +
         # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты
         # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
@@ -228,7 +248,7 @@ class CopterController():
         x_pix = int(message[0])
         y_pix = int(message[1])
         self.depth_debug.publish(self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
-
+        z = get_mean_range(self.depth_images[min_i]['image'], x_pix, y_pix)
 
 
     def target_callback_test(self, message):
