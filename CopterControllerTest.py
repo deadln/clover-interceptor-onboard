@@ -298,6 +298,7 @@ class CopterController():
         y_global_vector = np.cross(x_global_vector, z_global_vector)
 
         target_position = x_global_vector * x_local + y_global_vector * y_local + z_global_vector * z_local
+        target_position += self.get_position()
         point = Point32()
         point.x, point.y, point.z = target_position[0], target_position[1], target_position[2]
         cloud = PointCloud()
