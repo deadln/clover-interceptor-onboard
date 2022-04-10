@@ -34,7 +34,7 @@ class CopterController():
         self.CAMERA_ANGLE_V = 0.9948376736367679
 
 
-        self.X_VECT = np.array([1, 0, 0])
+        self.X_NORM = np.array([1, 0, 0])
         self.SPIN_TIME = 8
         self.SPIN_RATE = math.pi / self.SPIN_TIME
         self.PATROL_SPEED = 0.3
@@ -54,8 +54,8 @@ class CopterController():
 
         self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
         self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
-        # rospy.Subscriber('drone_detection/target', String, self.target_callback)
-        rospy.Subscriber('drone_detection/target', String, self.target_callback_test)
+        rospy.Subscriber('drone_detection/target', String, self.target_callback)
+        # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
         rospy.on_shutdown(self.on_shutdown_cb)
@@ -87,10 +87,11 @@ class CopterController():
         while True:  # not rospy.is_shutdown():
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
+                continue
             if self.state == "patrol_navigate":  # Полёт к точке патрулирования
                 if self.patrol_target is None:
                     self.set_patrol_target()
-                    # self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_VECT, self.patrol_target))
+                    # self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_NORM, self.patrol_target))
                     self.navigate(self.patrol_target, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
                 elif self.is_navigate_target_reached():
                     self.patrol_target = None
@@ -108,7 +109,7 @@ class CopterController():
                 position = self.get_position(frame_id='aruco_map')
                 error = self.pursuit_target + np.array([0 ,0 ,1]) - position
                 velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
-                self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_VECT, self.pursuit_target))
+                self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target))
 
             if self.state == "suspicion":  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
                 pass
