@@ -317,7 +317,7 @@ class CopterController():
 
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")
-        self.land()
+        # self.land()
         rospy.loginfo("landing complete")
 
 
