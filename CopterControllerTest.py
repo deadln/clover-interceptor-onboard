@@ -45,6 +45,7 @@ class CopterController():
         self.up_right_corner = np.array([3.0, 6.0, 4.2])
         # self.min_height = 0.8
         # self.max_height = 4.2
+        self.telemetry = None
         self.state = ""
         self.patrol_target = None
         self.spin_start = None
@@ -62,10 +63,14 @@ class CopterController():
         rospy.on_shutdown(self.on_shutdown_cb)
 
     def get_telemetry(self, frame_id='aruco_map'):
+        if frame_id == 'aruco_map':
+            return self.telemetry
         telemetry = self.__get_telemetry__(frame_id=frame_id)
         return telemetry
 
     def get_position(self, frame_id='aruco_map'):
+        if frame_id == 'aruco_map':
+            return np.array([self.telemetry.x, self.telemetry.y, self.telemetry.z])
         telemetry = self.__get_telemetry__(frame_id=frame_id)
         return np.array([telemetry.x, telemetry.y, telemetry.z])
 
@@ -86,6 +91,7 @@ class CopterController():
 
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():  # not rospy.is_shutdown():
+            self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
                 continue
@@ -325,7 +331,7 @@ class CopterController():
 if __name__ == '__main__':
     controller = CopterController()
     try:
-        CopterController.offboard_loop()
+        controller.offboard_loop()
     except rospy.ROSInterruptException:
         pass
 
