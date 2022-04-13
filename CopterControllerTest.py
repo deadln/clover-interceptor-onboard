@@ -56,6 +56,7 @@ class CopterController():
         self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
         self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
         self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
+        self.detection_axis_debug = rospy.Publisher("debug/detection_axis", PointCloud, queue_size=10)
         rospy.Subscriber('drone_detection/target', String, self.target_callback)
         # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
@@ -167,7 +168,7 @@ class CopterController():
         # self.set_velocity(velocity)
         rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
 
-    def is_navigate_target_reached(self, tolerance):
+    def is_navigate_target_reached(self,  tolerance=0.3):
         position = self.get_position(frame_id='navigate_target')
         return np.linalg.norm(position) < tolerance
         # return math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance
@@ -281,7 +282,7 @@ class CopterController():
         h = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_V / 2), 2) - pow(z_local, 2))
         x_local = (x_pix - 320) / 640 * w  # (w / 2)
         y_local = -1 * (y_pix - 240) / 480 * h  # (h / 2)
-
+        # Дебаг вывод цели относительно точки (0,0,0)
         point = Point32()
         point.x, point.y, point.z = x_local, z_local, y_local
         cloud = PointCloud()
@@ -303,6 +304,23 @@ class CopterController():
         x_global_vector = turn_vector(-axis, -z_global_vector, telemetry.roll)
         y_global_vector = np.cross(x_global_vector, z_global_vector)
 
+        # Дебаг вывод локальной системы координат дрона
+        point_x, point_y, point_z = Point32(), Point32(), Point32()
+        x_global_vector_norm = x_global_vector / np.linalg.norm(x_global_vector) + self.get_position()
+        y_global_vector_norm = y_global_vector / np.linalg.norm(y_global_vector) + self.get_position()
+        z_global_vector_norm = z_global_vector / np.linalg.norm(z_global_vector) + self.get_position()
+        point_x.x, point_x.y, point_x.z = x_global_vector_norm[0], x_global_vector_norm[1], x_global_vector_norm[2]
+        point_y.x, point_y.y, point_y.z = y_global_vector_norm[0], y_global_vector_norm[1], y_global_vector_norm[2]
+        point_z.x, point_z.y, point_z.z = z_global_vector_norm[0], z_global_vector_norm[1], z_global_vector_norm[2]
+        cloud = PointCloud()
+        cloud.header.stamp = rospy.Time.now()
+        cloud.header.frame_id = "aruco_map"
+        cloud.points.append(point_x)
+        cloud.points.append(point_y)
+        cloud.points.append(point_z)
+        self.detection_axis_debug.publish(cloud)
+
+        # Дебаг вывод координат цели в пространстве
         target_position = x_global_vector * x_local + y_global_vector * y_local + z_global_vector * z_local
         target_position += self.get_position()
         point = Point32()
