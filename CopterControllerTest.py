@@ -28,7 +28,7 @@ class CopterController():
 
         self.bridge = CvBridge()
 
-        self.FREQUENCY = 10
+        self.FREQUENCY = 5
         self.DEPTH_QUEUE_SIZE = 500
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
@@ -85,7 +85,7 @@ class CopterController():
         self.takeoff()
 
         rate = rospy.Rate(self.FREQUENCY)
-        while True:  # not rospy.is_shutdown():
+        while not rospy.is_shutdown():  # not rospy.is_shutdown():
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
                 continue
@@ -123,7 +123,7 @@ class CopterController():
             if self.state == "rtb":  # Возвращение на базу
                 pass
 
-            # rate.sleep()
+            rate.sleep()
 
     def takeoff(self):
         # self.navigate(frame_id="", auto_arm = True)
@@ -319,6 +319,7 @@ class CopterController():
         rospy.logwarn("shutdown")
         # self.land()
         rospy.loginfo("landing complete")
+        exit(0)
 
 
 if __name__ == '__main__':
