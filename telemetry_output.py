@@ -8,5 +8,6 @@ get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 
 r = rospy.Rate(5)
 while not rospy.is_shutdown():
-    print(get_telemetry(frame_id='aruco_map'))
+    telemetry = get_telemetry(frame_id='aruco_map')
+    print(telemetry.cell_voltage)
     r.sleep()

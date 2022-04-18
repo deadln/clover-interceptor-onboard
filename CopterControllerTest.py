@@ -43,8 +43,6 @@ class CopterController():
         # TODO: парсить данные о полётной зоне из txt или launch файла
         self.low_left_corner = np.array([0.0, 0.0, 0.8])
         self.up_right_corner = np.array([3.0, 6.0, 4.2])
-        # self.min_height = 0.8
-        # self.max_height = 4.2
         self.telemetry = None
         self.state = ""
         self.patrol_target = None
