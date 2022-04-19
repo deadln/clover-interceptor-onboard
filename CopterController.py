@@ -42,8 +42,8 @@ class CopterController():
         self.DETECTION_DIAPASON_SEC = 1.0
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([0.0, 0.0, 0.8])
-        self.up_right_corner = np.array([4.0, 4.0, 3.3])
+        self.low_left_corner = np.array([0.5, 0.5, 0.5])
+        self.up_right_corner = np.array([4.0, 4.0, 3.0])
         self.telemetry = None
         self.state = ""
         self.patrol_target = None
@@ -91,6 +91,8 @@ class CopterController():
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():
             self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
+            if self.telemetry.cell_voltage < 3.1:
+                rospy.logfatal("LOW CELL VOLTAGE ", self.telemetry.cell_voltage)
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
                 continue
@@ -99,10 +101,10 @@ class CopterController():
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
                     # Полёт напрямую
-                    self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_NORM, self.patrol_target))
+                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target))
                     # Полёт с вращением
-                    # self.navigate(self.patrol_target, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
-                elif self.is_navigate_target_reached():
+                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
+                elif self.is_navigate_target_reached():  # Argument: target=self.patrol_target
                     rospy.loginfo("Patrol target reached")
                     self.patrol_target = None
                     # self.state = "patrol_spin"
@@ -110,7 +112,7 @@ class CopterController():
             # if self.state == "patrol_spin":  # Вращение в точке патрулирования
             #     if self.spin_start is None:
             #         self.spin_start = rospy.get_time()
-            #         self.navigate(yaw=float('nan'), yaw_rate=self.SPIN_RATE)
+            #         self.navigate(self.get_position(), yaw=float('nan'), yaw_rate=self.SPIN_RATE)
             #     elif rospy.get_time() - self.spin_start >= self.SPIN_TIME:
             #         self.spin_start = None
             #         self.state = "patrol_navigate"
@@ -133,9 +135,11 @@ class CopterController():
             rate.sleep()
 
     def takeoff(self):
-        self.navigate(frame_id="", auto_arm = True)
-        rospy.sleep(5)
+        self.set_velocity(np.array([0, 0, 0.3]), yaw=float('nan'), frame_id="body", auto_arm=True)
+        # self.navigate(frame_id="", auto_arm = True)
+        rospy.sleep(4)
         self.state = "patrol_navigate"
+        rospy.loginfo("Takeoff complete")
 
     def navigate_wait(self, x=0, y=0, z=2, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
         self.navigate(x=x, y=y, z=z, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
@@ -146,9 +150,12 @@ class CopterController():
             rospy.sleep(0.2)
 
     def set_patrol_target(self):
-        self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
-                         random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
-                         random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
+        self.patrol_target = self.get_position()
+        while np.linalg.norm(self.patrol_target - self.get_position()) < np.linalg.norm(
+                self.low_left_corner - self.up_right_corner) / 3:
+            self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
+                                           random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
+                                           random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
 
     def get_yaw_angle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -168,8 +175,11 @@ class CopterController():
         self.set_velocity(velocity)
         rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
 
-    def is_navigate_target_reached(self, tolerance):
-        position = self.get_position(frame_id='navigate_target')
+    def is_navigate_target_reached(self,  tolerance=0.3, target=None):
+        if target is None:
+            position = self.get_position(frame_id='navigate_target')
+        else:
+            position = target - self.get_position()
         return np.linalg.norm(position) < tolerance
         # return math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance
 
@@ -294,7 +304,7 @@ class CopterController():
 if __name__ == '__main__':
     controller = CopterController()
     try:
-        CopterController.offboard_loop()
+        controller.offboard_loop()
     except rospy.ROSInterruptException:
         pass
 
