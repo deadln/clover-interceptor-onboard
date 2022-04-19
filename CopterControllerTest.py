@@ -41,8 +41,8 @@ class CopterController():
         self.INTERCEPTION_SPEED = 0.5
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([1.0, 0.0, 1.0])
-        self.up_right_corner = np.array([2.0, 1.0, 1.5])
+        self.low_left_corner = np.array([0.0, 0.0, 0.4])
+        self.up_right_corner = np.array([4.0, 4.0, 1.7])
         self.telemetry = None
         self.state = ""
         self.patrol_target = None
@@ -100,7 +100,7 @@ class CopterController():
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
                     # self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_NORM, self.patrol_target))
                     # self.navigate(self.patrol_target, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
-                elif self.is_navigate_target_reached():
+                elif self.is_navigate_target_reached(target=self.patrol_target):
                     rospy.loginfo("Patrol target reached")
                     self.patrol_target = None
                     # self.state = "patrol_spin"
@@ -144,9 +144,11 @@ class CopterController():
             rospy.sleep(0.2)
 
     def set_patrol_target(self):
-        self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
-                         random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
-                         random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
+        self.patrol_target = self.get_position()
+        while np.linalg.norm(self.patrol_target - self.get_position()) < np.linalg.norm(self.low_left_corner - self.up_right_corner) / 3:
+            self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
+                             random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
+                             random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
 
     def get_yaw_angle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -164,10 +166,15 @@ class CopterController():
         velocity += np.array(list(map(int, position > self.up_right_corner))) * -1
         velocity *= self.INTERCEPTION_SPEED
         # self.set_velocity(velocity)
-        rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
+        # rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
 
-    def is_navigate_target_reached(self,  tolerance=0.3):
-        position = self.get_position(frame_id='navigate_target')
+    def is_navigate_target_reached(self,  tolerance=0.3, target=None):
+        if target is None:
+            position = self.get_position(frame_id='navigate_target')
+        else:
+            position = target - self.get_position()
+        # print(position)
+        # print(np.linalg.norm(position))
         return np.linalg.norm(position) < tolerance
         # return math.sqrt(telem.x ** 2 + telem.y ** 2 + telem.z ** 2) < tolerance
 
