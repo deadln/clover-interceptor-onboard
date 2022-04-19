@@ -98,6 +98,7 @@ class CopterController():
                 if self.patrol_target is None:
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
+                    print("YAW", self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()) / (math.pi / 180))
                     # self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_NORM, self.patrol_target))
                     # self.navigate(self.patrol_target, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
                 elif self.is_navigate_target_reached(target=self.patrol_target):

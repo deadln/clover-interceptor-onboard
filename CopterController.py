@@ -32,6 +32,7 @@ class CopterController():
         self.DEPTH_QUEUE_SIZE = 500
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
+        self.CRITICAL_CELL_VOLTAGE = 3.05
 
 
         self.X_NORM = np.array([1, 0, 0])
@@ -91,8 +92,9 @@ class CopterController():
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():
             self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
-            if self.telemetry.cell_voltage < 3.1:
-                rospy.logfatal("LOW CELL VOLTAGE ", self.telemetry.cell_voltage)
+            if self.telemetry.cell_voltage < self.CRITICAL_CELL_VOLTAGE:
+                rospy.logfatal("CRITIcAL CELL VOLTAGE: {}".format(self.telemetry.cell_voltage))
+                rospy.signal_shutdown("Cell voltage is too low")
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
                 continue
@@ -101,9 +103,10 @@ class CopterController():
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
                     # Полёт напрямую
-                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target))
+                    print("YAW", self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()) / (math.pi / 180))
+                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
                     # Полёт с вращением
-                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
+                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
                 elif self.is_navigate_target_reached():  # Argument: target=self.patrol_target
                     rospy.loginfo("Patrol target reached")
                     self.patrol_target = None
@@ -122,7 +125,7 @@ class CopterController():
                 error = self.pursuit_target + np.array([0 ,0 ,1]) - position
                 velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
                 rospy.loginfo(f"In puruit. Interception velocity {velocity}")
-                self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target))
+                self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
 
             if self.state == "suspicion":  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
                 pass
@@ -135,9 +138,9 @@ class CopterController():
             rate.sleep()
 
     def takeoff(self):
-        self.set_velocity(np.array([0, 0, 0.3]), yaw=float('nan'), frame_id="body", auto_arm=True)
+        self.set_velocity(np.array([0, 0, 0.2]), yaw=float('nan'), frame_id="body", auto_arm=True)
         # self.navigate(frame_id="", auto_arm = True)
-        rospy.sleep(4)
+        rospy.sleep(0.5)
         self.state = "patrol_navigate"
         rospy.loginfo("Takeoff complete")
 
