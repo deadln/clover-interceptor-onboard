@@ -56,7 +56,7 @@ class CopterController():
         self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
         self.detection_axis_debug = rospy.Publisher("debug/detection_axis", PointCloud, queue_size=10)
         rospy.Subscriber('drone_detection/target', String, self.target_callback)
-        # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
+        rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
         rospy.on_shutdown(self.on_shutdown_cb)
@@ -116,10 +116,11 @@ class CopterController():
 
             if self.state == "pursuit":  # Состояние преследования цели, которая однозначно обнаружена
                 position = self.get_position(frame_id='aruco_map')
-                error = self.pursuit_target + np.array([0 ,0 ,1]) - position
+                error = self.pursuit_target + np.array([0, 0, 0.7]) - position
                 velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
-                rospy.loginfo(f"In puruit. Interception velocity {velocity}")
-                # self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target))
+                rospy.loginfo(f"In pursuit. Interception velocity {velocity}")
+                # self.set_velocity(velocity,
+                #                   yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
 
             if self.state == "suspicion":  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
                 pass
@@ -342,8 +343,11 @@ class CopterController():
 
 
     def target_callback_test(self, message):
-        message = message.split()
-        self.pursuit_target = np.array(list(map(float, message[:2])))
+        if message.data == '':
+            self.pursuit_target = None
+            return
+        message = message.data.split()
+        self.pursuit_target = np.array(list(map(float, message)))
 
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")
