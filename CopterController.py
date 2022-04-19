@@ -37,7 +37,7 @@ class CopterController():
 
         self.X_NORM = np.array([1, 0, 0])
         self.SPIN_TIME = 8
-        self.SPIN_RATE = math.pi / self.SPIN_TIME
+        self.SPIN_RATE = 2 * math.pi / self.SPIN_TIME
         self.PATROL_SPEED = 0.3
         self.INTERCEPTION_SPEED = 0.5
         self.DETECTION_DIAPASON_SEC = 1.0

@@ -22,13 +22,14 @@ def disengage_target():
 def ros_loop():
     r = rospy.Rate(5)
     while not rospy.is_shutdown():
+
         if emit:
             pub.publish(target)
         else:
             pub.publish('')
         r.sleep()
 
-target = '2.0 2.0 1.5'
+target = '2.0 2.0 1.3'
 emit = False
 rospy.init_node('false_target')
 
