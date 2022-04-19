@@ -41,8 +41,8 @@ class CopterController():
         self.INTERCEPTION_SPEED = 0.5
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([0.0, 0.0, 0.8])
-        self.up_right_corner = np.array([3.0, 6.0, 4.2])
+        self.low_left_corner = np.array([1.0, 0.0, 1.0])
+        self.up_right_corner = np.array([2.0, 1.0, 1.5])
         self.telemetry = None
         self.state = ""
         self.patrol_target = None
@@ -160,8 +160,8 @@ class CopterController():
     def return_to_patrol_zone(self):
         position = self.get_position()
         velocity = np.zeros(3)
-        velocity += list(map(int, position < self.low_left_corner))
-        velocity += list(map(int, position > self.up_right_corner))
+        velocity += np.array(list(map(int, position < self.low_left_corner)))
+        velocity += np.array(list(map(int, position > self.up_right_corner))) * -1
         velocity *= self.INTERCEPTION_SPEED
         # self.set_velocity(velocity)
         rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")

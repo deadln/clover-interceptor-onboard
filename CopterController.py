@@ -39,10 +39,11 @@ class CopterController():
         self.SPIN_RATE = math.pi / self.SPIN_TIME
         self.PATROL_SPEED = 0.3
         self.INTERCEPTION_SPEED = 0.5
+        self.DETECTION_DIAPASON_SEC = 1.0
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
         self.low_left_corner = np.array([0.0, 0.0, 0.8])
-        self.up_right_corner = np.array([3.0, 6.0, 4.2])
+        self.up_right_corner = np.array([4.0, 4.0, 3.3])
         self.telemetry = None
         self.state = ""
         self.patrol_target = None
@@ -55,7 +56,7 @@ class CopterController():
         self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
         self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
         rospy.Subscriber('drone_detection/target', String, self.target_callback)
-        # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
+        rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
         rospy.on_shutdown(self.on_shutdown_cb)
@@ -97,7 +98,9 @@ class CopterController():
                 if self.patrol_target is None:
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
+                    # Полёт напрямую
                     self.navigate(self.patrol_target[0], self.patrol_target[1], self.patrol_target[2], self.get_yaw_angle(self.X_NORM, self.patrol_target))
+                    # Полёт с вращением
                     # self.navigate(self.patrol_target, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
                 elif self.is_navigate_target_reached():
                     rospy.loginfo("Patrol target reached")
@@ -127,7 +130,7 @@ class CopterController():
             if self.state == "rtb":  # Возвращение на базу
                 pass
 
-            # rate.sleep()
+            rate.sleep()
 
     def takeoff(self):
         self.navigate(frame_id="", auto_arm = True)
@@ -159,10 +162,11 @@ class CopterController():
     def return_to_patrol_zone(self):
         position = self.get_position()
         velocity = np.zeros(3)
-        velocity += list(map(int, position < self.low_left_corner))
-        velocity += list(map(int, position > self.up_right_corner))
+        velocity += np.array(list(map(int, position < self.low_left_corner)))
+        velocity += np.array(list(map(int, position > self.up_right_corner))) * -1
         velocity *= self.INTERCEPTION_SPEED
         self.set_velocity(velocity)
+        rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
 
     def is_navigate_target_reached(self, tolerance):
         position = self.get_position(frame_id='navigate_target')
@@ -231,6 +235,7 @@ class CopterController():
                         min_distance = img[i][j]
             return min_distance
 
+
         # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у +
         # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты
         # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
@@ -271,6 +276,8 @@ class CopterController():
         cloud.header.frame_id = "map"
         cloud.points.append(point)
         self.target_local_debug.publish(cloud)
+
+
 
 
 
