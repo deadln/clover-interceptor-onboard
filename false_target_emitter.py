@@ -14,20 +14,20 @@ def array_to_string(arr):
 def engage_target():
     global emit
     emit = True
+    pub.publish(target)
 
 def disengage_target():
     global emit
     emit = False
+    pub.publish('')
 
-def ros_loop():
-    r = rospy.Rate(5)
-    while not rospy.is_shutdown():
-
-        if emit:
-            pub.publish(target)
-        else:
-            pub.publish('')
-        r.sleep()
+# def ros_loop():
+#     r = rospy.Rate(5)
+#     while not rospy.is_shutdown():
+#
+#         if emit:
+#         else:
+#         r.sleep()
 
 target = '2.0 2.0 1.3'
 emit = False
@@ -43,7 +43,7 @@ disengage_button = ttk.Button(win, text="Убрать ложную цель", co
 engage_button.pack()
 disengage_button.pack()
 
-thread = threading.Thread(target=ros_loop)
-thread.start()
+# thread = threading.Thread(target=ros_loop)
+# thread.start()
 
 win.mainloop()

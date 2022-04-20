@@ -17,6 +17,7 @@ node_name = "copter_node"
 
 class CopterController():
     def __init__(self):
+        # Инициализация ROS и сервисов Клевера
         rospy.init_node(node_name)
         rospy.loginfo(node_name + " started")
 
@@ -28,19 +29,20 @@ class CopterController():
 
         self.bridge = CvBridge()
 
+        # Константы логики работы программы
         self.FREQUENCY = 5
-        self.DEPTH_QUEUE_SIZE = 500
+        self.DEPTH_QUEUE_SIZE = 200
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
 
-
+        # Константы логики полёта
         self.X_NORM = np.array([1, 0, 0])
         self.SPIN_TIME = 8
         self.SPIN_RATE = math.pi / self.SPIN_TIME
         self.PATROL_SPEED = 0.3
         self.INTERCEPTION_SPEED = 0.5
 
-        # TODO: парсить данные о полётной зоне из txt или launch файла
+        # Переменные программы TODO: парсить данные о полётной зоне из txt или launch файла
         self.low_left_corner = np.array([0.0, 0.0, 0.4])
         self.up_right_corner = np.array([4.0, 4.0, 1.7])
         self.telemetry = None
@@ -50,13 +52,22 @@ class CopterController():
         self.pursuit_target = None
         self.pursuit_target_detections = []
         self.depth_images = []
+        self.target_detections = []
 
+        # Инициаоизация топиков
+        # Вывод карты глубины с целеуказателем
         self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
+        # Цель в координатах относительно дрона
         self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
+        # Цель в координатах относительно пространства
         self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
+        # Базис пространства относительно дрона
         self.detection_axis_debug = rospy.Publisher("debug/detection_axis", PointCloud, queue_size=10)
+        # Топик для получения информации о распознанных целях
         rospy.Subscriber('drone_detection/target', String, self.target_callback)
+        # Топик для получения информации о ложной цели
         rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)
+        # Топик для получения карт глубин
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
         rospy.on_shutdown(self.on_shutdown_cb)
@@ -67,6 +78,7 @@ class CopterController():
         telemetry = self.__get_telemetry__(frame_id=frame_id)
         return telemetry
 
+    # Позиция, получаемая из телеметрии и преобразуемая в numpy.array
     def get_position(self, frame_id='aruco_map'):
         if frame_id == 'aruco_map':
             return np.array([self.telemetry.x, self.telemetry.y, self.telemetry.z])
@@ -91,6 +103,7 @@ class CopterController():
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():  # not rospy.is_shutdown():
             self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
+            # Проверка на нахождение внутри патрульной зоны
             if not self.is_inside_patrol_zone():
                 self.return_to_patrol_zone()
                 continue
@@ -201,6 +214,7 @@ class CopterController():
                                   'image': convert_depth_image(message)})
 
     def target_callback(self, message):
+        # Функция рисует целеуказатель на карте глубин
         def draw_cross(img, x, y):
             CROSS_HALF = 2
             CROSS_HALF_LEN = 30
@@ -228,6 +242,7 @@ class CopterController():
                         k += 1
             return img
 
+        # Функция нахождения минимальной точки в радиусе на карте глубин
         def get_min_range(img, x, y):
             SEARCH_RADIUS = 20
             x_start = max(x - SEARCH_RADIUS, 0)
@@ -242,6 +257,7 @@ class CopterController():
                         min_distance = img[i][j]
             return min_distance
 
+        # Функция поворота вектора
         def turn_vector(vect, axis, angle):
             axis = axis / np.linalg.norm(axis)
             rot_matrix = np.array([
@@ -261,8 +277,17 @@ class CopterController():
         # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты +
         # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
         message = message.data.split()
+        x_pix = int(message[0])
+        y_pix = int(message[1])
         secs = int(message[2])
         nsecs = int(message[3])
+        # Если цель не обнаружена
+        if x_pix == -1 or y_pix == -1:
+            self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
+            self.target_detections.append(
+                {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': None})
+            return
+        # Поиск карты глубин, соответствующей
         i = 0
         while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] > secs:
             i += 1
@@ -280,8 +305,7 @@ class CopterController():
                 min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
         # self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
 
-        x_pix = int(message[0])
-        y_pix = int(message[1])
+
         z_local = get_min_range(self.depth_images[min_i]['image'], x_pix, y_pix)
         self.depth_debug.publish(self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
 
@@ -327,9 +351,14 @@ class CopterController():
         cloud.points.append(point_z)
         self.detection_axis_debug.publish(cloud)
 
-        # Дебаг вывод координат цели в пространстве
         target_position = x_global_vector * x_local + y_global_vector * y_local + z_global_vector * z_local
         target_position += self.get_position()
+
+        self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
+        self.target_detections.append(
+            {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': target_position})
+
+        # Дебаг вывод координат цели в пространстве
         point = Point32()
         point.x, point.y, point.z = target_position[0], target_position[1], target_position[2]
         cloud = PointCloud()
