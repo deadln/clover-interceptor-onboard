@@ -295,8 +295,9 @@ class CopterController():
 
     def target_callback_test(self, message):
         if message.data == '':
-            self.pursuit_target = None
             self.state = 'patrol_navigate'
+            self.pursuit_target = None
+            self.patrol_target = None
             return
         message = message.data.split()
         self.pursuit_target = np.array(list(map(float, message)))
