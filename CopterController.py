@@ -53,10 +53,11 @@ class CopterController():
         self.pursuit_target_detections = []
         self.depth_images = []
 
-        self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
-        self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
-        self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
-        rospy.Subscriber('drone_detection/target', String, self.target_callback)
+        # self.depth_debug = rospy.Publisher("debug/depth", Image, queue_size=10)
+        # self.target_local_debug = rospy.Publisher("debug/target_position_local", PointCloud, queue_size=10)
+        # self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
+        # rospy.Subscriber('drone_detection/target', String, self.target_callback)
+        self.telemetry_pub = rospy.Publisher("/telemetry_topic", String, queue_size=10)
         rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
         rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
@@ -92,6 +93,8 @@ class CopterController():
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():
             self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
+            self.telemetry_pub.publish(
+                f"{self.telemetry.x} {self.telemetry.y} {self.telemetry.z} {self.telemetry.roll} {self.telemetry.pitch} {self.telemetry.yaw}")
             if self.telemetry.cell_voltage < self.CRITICAL_CELL_VOLTAGE:
                 rospy.logfatal("CRITIcAL CELL VOLTAGE: {}".format(self.telemetry.cell_voltage))
                 rospy.signal_shutdown("Cell voltage is too low")
@@ -194,104 +197,104 @@ class CopterController():
         return all(position >= self.low_left_corner) and all(position <= self.up_right_corner)
 
 
-    def depth_image_callback(self, message):
-        def convert_depth_image(ros_image):
-            depth_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding="passthrough")
-            depth_array = np.array(depth_image, dtype=np.float32) * 0.001  # расстояние в метрах 0.001
-            return depth_array
-            # im = Image.fromarray(depth_array)
-            # im = im.convert("L")
-            # idx = str(i).zfill(4)
-            # im.save(root+"/depth/frame{index}.png".format(index = idx))
-            # i += 1
-            # print("depth_idx: ", i)
-        self.depth_images = self.depth_images[:min(len(self.depth_images), self.DEPTH_QUEUE_SIZE)]
-        self.depth_images.append({'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs},
-                                  'image': convert_depth_image(message)})
-
-    def target_callback(self, message):
-        def draw_cross(img, x, y):
-            CROSS_HALF = 2
-            CROSS_HALF_LEN = 30
-            for i in range(y - CROSS_HALF, y + CROSS_HALF + 1):
-                for j in range(x - CROSS_HALF, x + CROSS_HALF + 1):
-                    # Up
-                    k = 0
-                    while i - k >= 0 and k < CROSS_HALF_LEN:
-                        img[i - k][j] = 1000
-                        k += 1
-                    # Down
-                    k = 0
-                    while i + k < 480 and k < CROSS_HALF_LEN:
-                        img[i + k][j] = 1000
-                        k += 1
-                    # Left
-                    k = 0
-                    while j - k >= 0 and k < CROSS_HALF_LEN:
-                        img[i][j - k] = 1000
-                        k += 1
-                    # Right
-                    k = 0
-                    while j + k < 640 and k < CROSS_HALF_LEN:
-                        img[i][j + k] = 1000
-                        k += 1
-            return img
-
-        def get_min_range(img, x, y):
-            SEARCH_RADIUS = 20
-            x_start = max(x - SEARCH_RADIUS, 0)
-            x_end = min(x + SEARCH_RADIUS, 639)
-            y_start = max(y - SEARCH_RADIUS, 0)
-            y_end = min(y + SEARCH_RADIUS, 479)
-
-            min_distance = 10
-            for i in range(y_start, y_end + 1):
-                for j in range(x_start, x_end + 1):
-                    if img[i][j] > 0 and img[i][j] < min_distance:
-                        min_distance = img[i][j]
-            return min_distance
-
-
-        # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у +
-        # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты
-        # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
-        message = message.data.split()
-        secs = int(message[2])
-        nsecs = int(message[3])
-        i = 0
-        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] > secs:
-            i += 1
-        if i == len(self.depth_images):
-            return
-        start = i
-        while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] == secs:
-            i += 1
-        end = i
-        if start >= len(self.depth_images) or end >= len(self.depth_images):
-            return
-        min_i = start
-        for i in range(start, end):
-            if abs(self.depth_images[i]['timestamp']['nsecs'] - nsecs) < abs(self.depth_images[min_i]['timestamp']['nsecs'] - nsecs):
-                min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
-        # self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
-
-        x_pix = int(message[0])
-        y_pix = int(message[1])
-        z_local = get_min_range(self.depth_images[min_i]['image'], x_pix, y_pix)
-        self.depth_debug.publish(self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
-
-        w = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_H / 2), 2) - pow(z_local, 2))
-        h = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_V / 2), 2) - pow(z_local, 2))
-        x_local = (x_pix - 320) / 640 * w  # (w / 2)
-        y_local = -1 * (y_pix - 240) / 480 * h  # (h / 2)
-
-        point = Point32()
-        point.x, point.y, point.z = x_local, z_local, y_local
-        cloud = PointCloud()
-        cloud.header.stamp = rospy.Time.now()
-        cloud.header.frame_id = "map"
-        cloud.points.append(point)
-        self.target_local_debug.publish(cloud)
+    # def depth_image_callback(self, message):
+    #     def convert_depth_image(ros_image):
+    #         depth_image = self.bridge.imgmsg_to_cv2(ros_image, desired_encoding="passthrough")
+    #         depth_array = np.array(depth_image, dtype=np.float32) * 0.001  # расстояние в метрах 0.001
+    #         return depth_array
+    #         # im = Image.fromarray(depth_array)
+    #         # im = im.convert("L")
+    #         # idx = str(i).zfill(4)
+    #         # im.save(root+"/depth/frame{index}.png".format(index = idx))
+    #         # i += 1
+    #         # print("depth_idx: ", i)
+    #     self.depth_images = self.depth_images[:min(len(self.depth_images), self.DEPTH_QUEUE_SIZE)]
+    #     self.depth_images.append({'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs},
+    #                               'image': convert_depth_image(message)})
+    #
+    # def target_callback(self, message):
+    #     def draw_cross(img, x, y):
+    #         CROSS_HALF = 2
+    #         CROSS_HALF_LEN = 30
+    #         for i in range(y - CROSS_HALF, y + CROSS_HALF + 1):
+    #             for j in range(x - CROSS_HALF, x + CROSS_HALF + 1):
+    #                 # Up
+    #                 k = 0
+    #                 while i - k >= 0 and k < CROSS_HALF_LEN:
+    #                     img[i - k][j] = 1000
+    #                     k += 1
+    #                 # Down
+    #                 k = 0
+    #                 while i + k < 480 and k < CROSS_HALF_LEN:
+    #                     img[i + k][j] = 1000
+    #                     k += 1
+    #                 # Left
+    #                 k = 0
+    #                 while j - k >= 0 and k < CROSS_HALF_LEN:
+    #                     img[i][j - k] = 1000
+    #                     k += 1
+    #                 # Right
+    #                 k = 0
+    #                 while j + k < 640 and k < CROSS_HALF_LEN:
+    #                     img[i][j + k] = 1000
+    #                     k += 1
+    #         return img
+    #
+    #     def get_min_range(img, x, y):
+    #         SEARCH_RADIUS = 20
+    #         x_start = max(x - SEARCH_RADIUS, 0)
+    #         x_end = min(x + SEARCH_RADIUS, 639)
+    #         y_start = max(y - SEARCH_RADIUS, 0)
+    #         y_end = min(y + SEARCH_RADIUS, 479)
+    #
+    #         min_distance = 10
+    #         for i in range(y_start, y_end + 1):
+    #             for j in range(x_start, x_end + 1):
+    #                 if img[i][j] > 0 and img[i][j] < min_distance:
+    #                     min_distance = img[i][j]
+    #         return min_distance
+    #
+    #
+    #     # TODO: 1. Сделать поиск карты глубин, соответствующей данному timestamp-у +
+    #     # TODO: 2. Сделать перевод координат цели на изображении в локальные координаты
+    #     # TODO: 3. Сделать перевод координат цели на изображении в глобальные координаты
+    #     message = message.data.split()
+    #     secs = int(message[2])
+    #     nsecs = int(message[3])
+    #     i = 0
+    #     while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] > secs:
+    #         i += 1
+    #     if i == len(self.depth_images):
+    #         return
+    #     start = i
+    #     while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] == secs:
+    #         i += 1
+    #     end = i
+    #     if start >= len(self.depth_images) or end >= len(self.depth_images):
+    #         return
+    #     min_i = start
+    #     for i in range(start, end):
+    #         if abs(self.depth_images[i]['timestamp']['nsecs'] - nsecs) < abs(self.depth_images[min_i]['timestamp']['nsecs'] - nsecs):
+    #             min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
+    #     # self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
+    #
+    #     x_pix = int(message[0])
+    #     y_pix = int(message[1])
+    #     z_local = get_min_range(self.depth_images[min_i]['image'], x_pix, y_pix)
+    #     self.depth_debug.publish(self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
+    #
+    #     w = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_H / 2), 2) - pow(z_local, 2))
+    #     h = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_V / 2), 2) - pow(z_local, 2))
+    #     x_local = (x_pix - 320) / 640 * w  # (w / 2)
+    #     y_local = -1 * (y_pix - 240) / 480 * h  # (h / 2)
+    #
+    #     point = Point32()
+    #     point.x, point.y, point.z = x_local, z_local, y_local
+    #     cloud = PointCloud()
+    #     cloud.header.stamp = rospy.Time.now()
+    #     cloud.header.frame_id = "map"
+    #     cloud.points.append(point)
+    #     self.target_local_debug.publish(cloud)
 
     def target_callback_test(self, message):
         if message.data == '':
