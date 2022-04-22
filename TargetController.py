@@ -21,6 +21,7 @@ class TargetController():
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
 
+        self.consecutive_detections = 0
         self.depth_images = []
         self.target_detections = []
 
@@ -144,6 +145,9 @@ class TargetController():
             self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
             self.target_detections.append(
                 {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': None})
+            if self.consecutive_detections > 0:
+                print("CONSECUTIVE DETECTIONS:", self.consecutive_detections)
+                self.consecutive_detections = 0
             return
         # Поиск карты глубин, соответствующей
         i = 0
@@ -217,6 +221,7 @@ class TargetController():
         self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
         self.target_detections.append(
             {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': target_position})
+        self.consecutive_detections += 1
 
         # Дебаг вывод координат цели в пространстве
         point = Point32()

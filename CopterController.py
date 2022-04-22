@@ -32,7 +32,7 @@ class CopterController():
         self.DEPTH_QUEUE_SIZE = 500
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
-        self.CRITICAL_CELL_VOLTAGE = 3.08
+        self.CRITICAL_CELL_VOLTAGE = 3.07
 
 
         self.X_NORM = np.array([1, 0, 0])
