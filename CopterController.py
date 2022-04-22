@@ -32,7 +32,7 @@ class CopterController():
         self.DEPTH_QUEUE_SIZE = 500
         self.CAMERA_ANGLE_H = 1.5009831567151235
         self.CAMERA_ANGLE_V = 0.9948376736367679
-        self.CRITICAL_CELL_VOLTAGE = 3.05
+        self.CRITICAL_CELL_VOLTAGE = 3.08
 
 
         self.X_NORM = np.array([1, 0, 0])
@@ -58,8 +58,8 @@ class CopterController():
         # self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
         # rospy.Subscriber('drone_detection/target', String, self.target_callback)
         self.telemetry_pub = rospy.Publisher("/telemetry_topic", String, queue_size=10)
-        rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
-        rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
+        # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
+        # rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
         rospy.on_shutdown(self.on_shutdown_cb)
 
@@ -105,12 +105,13 @@ class CopterController():
                 if self.patrol_target is None:
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
+                else:
                     # Полёт напрямую
                     # print("YAW", self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()) / (math.pi / 180))
-                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
+                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
                     # Полёт с вращением
-                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
-                elif self.is_navigate_target_reached():  # Argument: target=self.patrol_target
+                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
+                if self.is_navigate_target_reached():  # Argument: target=self.patrol_target
                     rospy.loginfo("Patrol target reached")
                     self.patrol_target = None
                     # self.state = "patrol_spin"
