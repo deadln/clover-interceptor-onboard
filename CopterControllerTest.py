@@ -146,7 +146,7 @@ class CopterController():
                     position = self.get_position(frame_id='aruco_map')
                     error = self.pursuit_target + np.array([0, 0, 0.7]) - position
                     velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
-                    rospy.loginfo(f"In pursuit. Interception velocity {velocity}")
+                    print(f"In pursuit. Interception velocity {velocity}")
                     # self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
 
             if self.state == State.SUSPICION:  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
