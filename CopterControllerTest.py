@@ -344,23 +344,24 @@ class CopterController():
     #     self.target_local_debug.publish(cloud)
 
     def target_callback(self, message):
-        if math.isnan(message.data.x):
+        if math.isnan(message.x):
             if self.consecutive_detections > 0:
                 self.consecutive_detections = 0
         else:
             self.consecutive_detections += 1
+            target = np.array([message.x, message.y, message.z])
             if self.consecutive_detections >= self.PURSUIT_TRIGGER_COUNT:
                 # self.state = State.PURSUIT
                 self.set_state(State.PURSUIT)
-                self.pursuit_target = np.array([message.data.x, message.data.y, message.data.z])
+                self.pursuit_target = target
             elif self.consecutive_detections >= self.SUSPICION_TRIGGER_COUNT:
                 # self.state = State.SUSPICION
                 self.set_state(State.SUSPICION)
-                self.suspicion_target = np.array([message.data.x, message.data.y, message.data.z])
+                self.suspicion_target = target
             elif self.state == State.PURSUIT:
-                self.pursuit_target = np.array([message.data.x, message.data.y, message.data.z])
+                self.pursuit_target = target
             elif self.state == State.SUSPICION:
-                self.suspicion_target = np.array([message.data.x, message.data.y, message.data.z])
+                self.suspicion_target = target
 
     def target_callback_test(self, message):
         if message.data == '':
@@ -387,9 +388,6 @@ class State(Enum):
     PURSUIT = "PURSUIT"
     SEARCH = "SEARCH"
     RTB = "RTB"
-
-    def __str__(self):
-
 
 
 if __name__ == '__main__':
