@@ -333,25 +333,19 @@ class CopterController():
         if math.isnan(message.data.x):
             if self.consecutive_detections > 0:
                 self.consecutive_detections = 0
-            # if self.state == State.PURSUIT or self.state == State.SUSPICION:
-            #     self.state_timestamp = rospy.get_time()
         else:
             self.consecutive_detections += 1
             if self.consecutive_detections >= self.PURSUIT_TRIGGER_COUNT:
                 # self.state = State.PURSUIT
                 self.set_state(State.PURSUIT)
-                self.state_timestamp = rospy.get_time()
                 self.pursuit_target = np.array([message.data.x, message.data.y, message.data.z])
             elif self.consecutive_detections >= self.SUSPICION_TRIGGER_COUNT:
                 # self.state = State.SUSPICION
                 self.set_state(State.SUSPICION)
-                self.state_timestamp = rospy.get_time()
                 self.suspicion_target = np.array([message.data.x, message.data.y, message.data.z])
             elif self.state == State.PURSUIT:
-                self.state_timestamp = rospy.get_time()
                 self.pursuit_target = np.array([message.data.x, message.data.y, message.data.z])
             elif self.state == State.SUSPICION:
-                self.state_timestamp = rospy.get_time()
                 self.suspicion_target = np.array([message.data.x, message.data.y, message.data.z])
 
     def target_callback_test(self, message):
