@@ -24,6 +24,7 @@ class TargetController():
         self.consecutive_detections = 0
         self.depth_images = []
         self.target_detections = []
+        self.timer_start = None
 
         rospy.Subscriber("/telemetry_topic", String, self.telemetry_callback)
         rospy.Subscriber('drone_detection/target', String, self.target_callback)
@@ -65,16 +66,18 @@ class TargetController():
             # im.save(root+"/depth/frame{index}.png".format(index = idx))
             # i += 1
             # print("depth_idx: ", i)
-
+        self.start_timer()
         self.depth_images = self.depth_images[:min(len(self.depth_images), self.DEPTH_QUEUE_SIZE)]
         self.depth_images.insert(0, {'timestamp': {'secs': message.header.stamp.secs, 'nsecs': message.header.stamp.nsecs},
                                   'image': convert_depth_image(message)})
+        self.end_timer("depth_image_callback")
         # print(self.depth_images[-1]['timestamp'])
 
 
     def target_callback(self, message):
         # Функция рисует целеуказатель на карте глубин
         def draw_cross(img, x, y):
+            self.start_timer()
             CROSS_HALF = 2
             CROSS_HALF_LEN = 30
             for i in range(y - CROSS_HALF, y + CROSS_HALF + 1):
@@ -99,10 +102,12 @@ class TargetController():
                     while j + k < 640 and k < CROSS_HALF_LEN:
                         img[i][j + k] = 1000
                         k += 1
+            self.end_timer("draw_cross")
             return img
 
         # Функция нахождения минимальной точки в радиусе на карте глубин
         def get_min_range(img, x, y):
+            self.start_timer()
             SEARCH_RADIUS = 40
             x_start = max(x - SEARCH_RADIUS, 0)
             x_end = min(x + SEARCH_RADIUS, 639)
@@ -114,6 +119,7 @@ class TargetController():
                 for j in range(x_start, x_end + 1):
                     if img[i][j] > 0 and img[i][j] < min_distance:
                         min_distance = img[i][j]
+            self.end_timer("get_min_range")
             return min_distance
 
         # Функция поворота вектора
@@ -150,6 +156,7 @@ class TargetController():
                 self.consecutive_detections = 0
             return
         # Поиск карты глубин, соответствующей
+        self.start_timer()
         i = 0
         while i < len(self.depth_images) and self.depth_images[i]['timestamp']['secs'] > secs:
             i += 1
@@ -167,11 +174,13 @@ class TargetController():
                     self.depth_images[min_i]['timestamp']['nsecs'] - nsecs):
                 min_i = i  # self.depth_images[i]['image'] - нужная карта глубины
         # self.depth_debug.publish(self.bridge.cv2_to_imgmsg(self.depth_images[i]['image']))
+        self.end_timer("depth image search")
 
         z_local = get_min_range(self.depth_images[min_i]['image'], x_pix, y_pix)
         self.depth_debug.publish(
             self.bridge.cv2_to_imgmsg(draw_cross(self.depth_images[min_i]['image'] * 100, x_pix, y_pix)))
 
+        self.start_timer()
         w = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_H / 2), 2) - pow(z_local, 2))
         h = 2 * math.sqrt(pow(z_local / math.cos(self.CAMERA_ANGLE_V / 2), 2) - pow(z_local, 2))
         x_local = (x_pix - 320) / 640 * w  # (w / 2)
@@ -231,6 +240,15 @@ class TargetController():
         cloud.header.frame_id = "aruco_map"
         cloud.points.append(point)
         self.target_global_debug.publish(cloud)
+        self.end_timer("target position calculations")
+
+
+    def start_timer(self):
+        self.timer_start = rospy.get_time()
+
+    def end_timer(self, label="code block"):
+        timer_end = rospy.get_time()
+        rospy.loginfo(f"Time of execution of {label} is {timer_end - self.timer_start}")
 
     def run(self):
         rospy.spin()
