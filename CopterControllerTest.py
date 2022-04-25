@@ -203,9 +203,23 @@ class CopterController():
 
     def set_state(self, state):
         self.state = state
-        rospy.loginfo("Changed state to" + state)
+        rospy.loginfo("Changed state to" + self.state_to_string(state))
         if state == State.SUSPICION or state == State.PURSUIT or state == State.SEARCH:
             self.state_timestamp = rospy.get_time()
+
+    def state_to_string(self, state):
+        if state == State.PATROL_NAVIGATE:
+            return "PATROL_NAVIGATE"
+        if state == State.PATROL_SPIN:
+            return "PATROL_SPIN"
+        if state == State.SUSPICION:
+            return "SUSPICION"
+        if state == State.PURSUIT:
+            return "PURSUIT"
+        if state == State.SEARCH:
+            return "SEARCH"
+        if state == State.RTB:
+            return "RTB"
 
     def is_navigate_target_reached(self,  tolerance=0.3, target=None):
         if target is None:
@@ -367,12 +381,15 @@ class CopterController():
 
 
 class State(Enum):
-    PATROL_NAVIGATE = 1
-    PATROL_SPIN = 2
-    SUSPICION = 3
-    PURSUIT = 4
-    SEARCH = 5
-    RTB = 6
+    PATROL_NAVIGATE = "PATROL_NAVIGATE"
+    PATROL_SPIN = "PATROL_SPIN"
+    SUSPICION = "SUSPICION"
+    PURSUIT = "PURSUIT"
+    SEARCH = "SEARCH"
+    RTB = "RTB"
+
+    def __str__(self):
+
 
 
 if __name__ == '__main__':
