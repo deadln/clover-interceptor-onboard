@@ -36,6 +36,8 @@ class TargetController():
         self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
         # Базис пространства относительно дрона
         self.detection_axis_debug = rospy.Publisher("debug/detection_axis", PointCloud, queue_size=10)
+        # Точка обнаруженной цели
+        self.target_position = rospy.Publisher("drone_detection/target_position", Point32, queue_size=10)
 
     def get_telemetry(self):
         return self.telemetry
@@ -130,6 +132,7 @@ class TargetController():
         nsecs = int(message[3])
         # Если цель не обнаружена
         if x_pix == -1 or y_pix == -1:
+            self.target_position.publish(Point32(float('nan'), float('nan'), float('nan')))
             self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
             self.target_detections.append(
                 {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': None})
@@ -164,8 +167,8 @@ class TargetController():
         x_local = (x_pix - 320) / 640 * w  # (w / 2)
         y_local = -1 * (y_pix - 240) / 480 * h  # (h / 2)
         # Дебаг вывод цели относительно точки (0,0,0)
-        point = Point32()
-        point.x, point.y, point.z = x_local, z_local, y_local
+        point = Point32(x_local, z_local, y_local)
+        # point.x, point.y, point.z = x_local, z_local, y_local
         cloud = PointCloud()
         cloud.header.stamp = rospy.Time.now()
         cloud.header.frame_id = "map"
@@ -203,16 +206,17 @@ class TargetController():
 
         target_position = x_global_vector * x_local + y_global_vector * y_local + z_global_vector * z_local
         target_position += self.get_position()
-        print("TARGET POSITION", target_position)
+        # print("TARGET POSITION", target_position)
 
+        self.target_position.publish(Point32(target_position[0], target_position[1], target_position[2]))
         self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
         self.target_detections.append(
             {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': target_position})
         self.consecutive_detections += 1
 
         # Дебаг вывод координат цели в пространстве
-        point = Point32()
-        point.x, point.y, point.z = target_position[0], target_position[1], target_position[2]
+        point = Point32(target_position[0], target_position[1], target_position[2])
+        # point.x, point.y, point.z = target_position[0], target_position[1], target_position[2]
         cloud = PointCloud()
         cloud.header.stamp = rospy.Time.now()
         cloud.header.frame_id = "aruco_map"
