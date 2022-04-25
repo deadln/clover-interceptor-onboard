@@ -9,7 +9,7 @@ import math
 import numpy as np
 
 
-class TargetController():
+class TargetController:
     def __init__(self):
         rospy.init_node('target_node')
 

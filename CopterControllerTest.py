@@ -203,7 +203,7 @@ class CopterController():
 
     def set_state(self, state):
         self.state = state
-        rospy.loginfo("Changed state to" + self.state_to_string(state))
+        rospy.loginfo("Changed state to " + self.state_to_string(state))
         if state == State.SUSPICION or state == State.PURSUIT or state == State.SEARCH:
             self.state_timestamp = rospy.get_time()
 
@@ -350,18 +350,21 @@ class CopterController():
         else:
             self.consecutive_detections += 1
             target = np.array([message.x, message.y, message.z])
-            if self.consecutive_detections >= self.PURSUIT_TRIGGER_COUNT:
+            if self.state == State.PURSUIT:
+                self.pursuit_target = target
+                self.state_timestamp = rospy.get_time()
+            elif self.consecutive_detections >= self.PURSUIT_TRIGGER_COUNT:
                 # self.state = State.PURSUIT
                 self.set_state(State.PURSUIT)
                 self.pursuit_target = target
-            elif self.consecutive_detections >= self.SUSPICION_TRIGGER_COUNT:
+            if self.state == State.SUSPICION:
+                self.suspicion_target = target
+                self.state_timestamp = rospy.get_time()
+            elif self.state != State.PURSUIT and self.consecutive_detections >= self.SUSPICION_TRIGGER_COUNT:
                 # self.state = State.SUSPICION
                 self.set_state(State.SUSPICION)
                 self.suspicion_target = target
-            elif self.state == State.PURSUIT:
-                self.pursuit_target = target
-            elif self.state == State.SUSPICION:
-                self.suspicion_target = target
+
 
     def target_callback_test(self, message):
         if message.data == '':
