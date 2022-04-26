@@ -47,10 +47,11 @@ class CopterController():
         self.DETECTION_DIAPASON_SEC = 1.0
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([2.5, 0.5, 0.5])
+        self.low_left_corner = np.array([2.5, 0.5, 1.0])
         self.up_right_corner = np.array([7.0, 4.5, 3.2])
         self.low_left_corner_restricted = np.array([0, 0, 0])
         self.up_right_corner_restricted = np.array([2.0, 2.0, 3.2])
+        self.base = None
         self.telemetry = None
         self.state = ""
         self.state_timestamp = rospy.get_time()
@@ -99,6 +100,8 @@ class CopterController():
 
     def offboard_loop(self):
         self.takeoff()
+        self.telemetry = self.__get_telemetry__(frame_id='aruco_map')
+        self.base = self.get_position() + np.array([0, 0, 0.2])
 
         rate = rospy.Rate(self.FREQUENCY)
         while not rospy.is_shutdown():
@@ -142,16 +145,21 @@ class CopterController():
                     position = self.get_position(frame_id='aruco_map')
                     error = self.pursuit_target + np.array([0, 0, 0.7]) - position
                     velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
-                    rospy.loginfo(f"In pursuit. Interception velocity {velocity}")
+                    print(f"In pursuit. Interception velocity {velocity}")
                     self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
 
             if self.state == State.SUSPICION:  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
-                pass
-            if self.state == State.SEARCH:  # Поиск утерянной цели
-                pass
+                suspicion_vector = self.suspicion_target - self.get_position()
+                suspicion_vector = suspicion_vector * ((np.linalg.norm(suspicion_vector) - 1) / np.linalg.norm(suspicion_vector))
+                suspicion_point = self.get_position() + suspicion_vector
+                self.navigate(suspicion_point, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, suspicion_point - self.get_position()))
+
+            if self.state == State.SEARCH:  # TODO: Поиск утерянной цели
+                self.navigate(self.get_position())
 
             if self.state == State.RTB:  # Возвращение на базу
-                pass
+                self.navigate_wait(self.base)
+                rospy.signal_shutdown("Mission complete")
 
             rate.sleep()
 
@@ -162,8 +170,8 @@ class CopterController():
         self.set_state(State.PATROL_NAVIGATE)
         rospy.loginfo("Takeoff complete")
 
-    def navigate_wait(self, x=0, y=0, z=2, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
-        self.navigate(x=x, y=y, z=z, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
+    def navigate_wait(self, target, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
+        self.navigate(target, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
 
         while not rospy.is_shutdown():
             if self.is_navigate_target_reached(tolerance):
