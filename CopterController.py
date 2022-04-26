@@ -60,6 +60,7 @@ class CopterController():
         self.consecutive_detections = 0
         self.suspicion_target = None
         self.pursuit_target = None
+        self.detection_pixel = Point32(0, 0, 0)
         self.pursuit_target_detections = []
         self.depth_images = []
 
@@ -68,7 +69,7 @@ class CopterController():
         # self.target_global_debug = rospy.Publisher("debug/target_position_global", PointCloud, queue_size=10)
         # rospy.Subscriber('drone_detection/target', String, self.target_callback)
         self.telemetry_pub = rospy.Publisher("/telemetry_topic", String, queue_size=10)
-        rospy.Subscriber("drone_detection/target_position", Point32, self.target_callback)
+        rospy.Subscriber("drone_detection/target_position", String, self.target_callback)
         # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
         # rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
@@ -336,12 +337,15 @@ class CopterController():
     #     self.target_local_debug.publish(cloud)
 
     def target_callback(self, message):
-        if math.isnan(message.x):
+        message = message.data.split()
+        position = Point32(float(message[0]), float(message[1]), float(message[2]))
+        if math.isnan(position.x):
             if self.consecutive_detections > 0:
                 self.consecutive_detections = 0
         else:
             self.consecutive_detections += 1
-            target = np.array([message.x, message.y, message.z])
+            self.detection_pixel = Point32(int(message[3]), int(message[4]), 0)
+            target = np.array([position.x, position.y, position.z])
             if self.state == State.PURSUIT:
                 self.pursuit_target = target
                 self.state_timestamp = rospy.get_time()
@@ -393,7 +397,7 @@ if __name__ == '__main__':
     rospy.spin()
 
 # TODO:
-# 1. Сделать запретную зону
-# 2. Затестить обнаружение цели и перехват
+# 1. Сделать запретную зону +
+# 2. Затестить обнаружение цели и перехват +
 # 3. Сделать поиск цели после потери
 # 4. Сделать определение момента поимки цели и возврат на базу

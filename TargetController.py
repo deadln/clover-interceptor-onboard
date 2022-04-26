@@ -37,7 +37,7 @@ class TargetController:
         # Базис пространства относительно дрона
         self.detection_axis_debug = rospy.Publisher("debug/detection_axis", PointCloud, queue_size=10)
         # Точка обнаруженной цели
-        self.target_position = rospy.Publisher("drone_detection/target_position", Point32, queue_size=10)
+        self.target_position = rospy.Publisher("drone_detection/target_position", String, queue_size=10)
 
     def get_telemetry(self):
         return self.telemetry
@@ -132,7 +132,8 @@ class TargetController:
         nsecs = int(message[3])
         # Если цель не обнаружена
         if x_pix == -1 or y_pix == -1:
-            self.target_position.publish(Point32(float('nan'), float('nan'), float('nan')))
+            # self.target_position.publish(Point32(float('nan'), float('nan'), float('nan')))
+            self.target_position.publish(f"{float('nan')} {float('nan')} {float('nan')} {x_pix} {y_pix}")
             self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
             self.target_detections.append(
                 {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': None})
@@ -208,7 +209,8 @@ class TargetController:
         target_position += self.get_position()
         # print("TARGET POSITION", target_position)
 
-        self.target_position.publish(Point32(target_position[0], target_position[1], target_position[2]))
+        # self.target_position.publish(Point32(target_position[0], target_position[1], target_position[2]))
+        self.target_position.publish(f"{target_position[0]} {target_position[1]} {target_position[2]} {x_pix} {y_pix}")
         self.target_detections = self.target_detections[:min(len(self.target_detections), self.DEPTH_QUEUE_SIZE)]
         self.target_detections.append(
             {'timestamp': {'secs': secs, 'nsecs': nsecs}, 'position': target_position})
