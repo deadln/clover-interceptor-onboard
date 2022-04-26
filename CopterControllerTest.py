@@ -3,8 +3,6 @@ import rospy
 from clover import srv
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import PointCloud
 from geometry_msgs.msg import Point32
 from cv_bridge import CvBridge
 
@@ -106,7 +104,7 @@ class CopterController():
             self.telemetry_pub.publish(
                 f"{self.telemetry.x} {self.telemetry.y} {self.telemetry.z} {self.telemetry.roll} {self.telemetry.pitch} {self.telemetry.yaw}")
             if self.telemetry.cell_voltage < self.CRITICAL_CELL_VOLTAGE:
-                rospy.logfatal("CRITIcAL CELL VOLTAGE: {}".format(self.telemetry.cell_voltage))
+                rospy.logfatal("CRITICAL CELL VOLTAGE: {}".format(self.telemetry.cell_voltage))
                 rospy.signal_shutdown("Cell voltage is too low")
             self.check_state_duration()
             if not self.is_inside_patrol_zone():
@@ -203,23 +201,9 @@ class CopterController():
 
     def set_state(self, state):
         self.state = state
-        rospy.loginfo("Changed state to " + self.state_to_string(state))
+        rospy.loginfo("Changed state to " + state.value)
         if state == State.SUSPICION or state == State.PURSUIT or state == State.SEARCH:
             self.state_timestamp = rospy.get_time()
-
-    def state_to_string(self, state):
-        if state == State.PATROL_NAVIGATE:
-            return "PATROL_NAVIGATE"
-        if state == State.PATROL_SPIN:
-            return "PATROL_SPIN"
-        if state == State.SUSPICION:
-            return "SUSPICION"
-        if state == State.PURSUIT:
-            return "PURSUIT"
-        if state == State.SEARCH:
-            return "SEARCH"
-        if state == State.RTB:
-            return "RTB"
 
     def is_navigate_target_reached(self,  tolerance=0.3, target=None):
         if target is None:
