@@ -49,6 +49,8 @@ class CopterController():
         # TODO: парсить данные о полётной зоне из txt или launch файла
         self.low_left_corner = np.array([2.5, 0.5, 0.5])
         self.up_right_corner = np.array([7.0, 4.5, 3.2])
+        self.low_left_corner_restricted = np.array([0, 0, 0])
+        self.up_right_corner_restricted = np.array([2.0, 2.0, 3.2])
         self.telemetry = None
         self.state = ""
         self.state_timestamp = rospy.get_time()
@@ -171,7 +173,7 @@ class CopterController():
     def set_patrol_target(self):
         self.patrol_target = self.get_position()
         while np.linalg.norm(self.patrol_target - self.get_position()) < np.linalg.norm(
-                self.low_left_corner - self.up_right_corner) / 3:
+                self.low_left_corner - self.up_right_corner) / 3 and not self.is_inside_restricted_zone():
             self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
                                            random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
                                            random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
@@ -211,6 +213,9 @@ class CopterController():
     def is_inside_patrol_zone(self):
         position = self.get_position()
         return all(position >= self.low_left_corner) and all(position <= self.up_right_corner)
+
+    def is_inside_restricted_zone(self):
+        return all(self.patrol_target >= self.low_left_corner_restricted) and all(self.patrol_target <= self.up_right_corner_restricted)
 
     def check_state_duration(self):
         if self.state == State.SUSPICION and rospy.get_time() - self.state_timestamp > self.SUSPICION_DURATION:
@@ -379,7 +384,7 @@ if __name__ == '__main__':
     rospy.spin()
 
 # TODO:
-# 1. Сделать функцию преобразования координат цели на изображении в координаты относительно дрона, а затем в глобальные
-# координаты
-# 2. Сделать функцию определения момента для явного преследования цели
-# 3. Сделать функцию проверки "подозреваемых" областей
+# 1. Сделать запретную зону
+# 2. Затестить обнаружение цели и перехват
+# 3. Сделать поиск цели после потери
+# 4. Сделать определение момента поимки цели и возврат на базу
