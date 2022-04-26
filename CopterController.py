@@ -35,8 +35,8 @@ class CopterController():
         self.SUSPICION_DURATION = 5
         self.PURSUIT_DURATION = 2
         self.SEARCH_DURATION = 5
-        self.SUSPICION_TRIGGER_COUNT = 5
-        self.PURSUIT_TRIGGER_COUNT = 10
+        self.SUSPICION_TRIGGER_COUNT = 10
+        self.PURSUIT_TRIGGER_COUNT = 15
 
 
         self.X_NORM = np.array([1, 0, 0])
@@ -125,7 +125,7 @@ class CopterController():
                     self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
                     # Полёт с вращением
                     # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
-                if self.is_navigate_target_reached():  # Argument: target=self.patrol_target
+                if self.is_navigate_target_reached(target=self.patrol_target):  # Argument: target=self.patrol_target
                     rospy.loginfo("Patrol target reached")
                     self.patrol_target = None
                     # self.state = "patrol_spin"
@@ -356,6 +356,7 @@ class CopterController():
                 # self.state = State.SUSPICION
                 self.set_state(State.SUSPICION)
                 self.suspicion_target = target
+                rospy.loginfo("Suspicious detect at " + str(self.suspicion_target))
 
     def target_callback_test(self, message):
         if message.data == '':
