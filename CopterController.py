@@ -90,10 +90,10 @@ class CopterController():
     def navigate(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0.0, auto_arm=False, frame_id='aruco_map'):
         self.__navigate__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
 
-    def set_position(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
+    def set_position(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0.0, auto_arm=False, frame_id='aruco_map'):
         self.__set_position__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
 
-    def set_velocity(self, target=np.array([0, 0, 0]), yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
+    def set_velocity(self, target=np.array([0, 0, 0]), yaw=float('nan'), yaw_rate=0.0, auto_arm=False, frame_id='aruco_map'):
         self.__set_velocity__(vx=target[0], vy=target[1], vz=target[2], yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
 
     def land(self):
@@ -156,7 +156,24 @@ class CopterController():
                 self.navigate(suspicion_point, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, suspicion_point - self.get_position()))
 
             if self.state == State.SEARCH:  # TODO: Поиск утерянной цели
-                self.navigate(self.get_position())
+                if self.up_sector(self.detection_pixel.x, self.detection_pixel.y):
+                    print("TARGET LOST AT UP SECTOR")
+                    if self.left_sector(self.detection_pixel.x, self.detection_pixel.y):
+                        yaw_rate = self.SPIN_RATE
+                        print("SPIN LEFT")
+                    else:
+                        yaw_rate = -self.SPIN_RATE
+                        print("SPIN RIGHT")
+                elif self.down_sector(self.detection_pixel.x, self.detection_pixel.y):
+                    print("TARGET LOST AT DOWN SECTOR")
+                    if self.left_sector(self.detection_pixel.x, self.detection_pixel.y):
+                        yaw_rate = self.SPIN_RATE
+                        print("SPIN LEFT")
+                    else:
+                        yaw_rate = -self.SPIN_RATE
+                        print("SPIN RIGHT")
+                self.set_velocity(np.array([0, 0, -0.2]), yaw=float('nan'), yaw_rate=yaw_rate)
+                # self.navigate(self.get_position())
 
             if self.state == State.RTB:  # Возвращение на базу
                 self.navigate_wait(self.base)
@@ -236,6 +253,28 @@ class CopterController():
         elif self.state == State.SEARCH and rospy.get_time() - self.state_timestamp > self.SEARCH_DURATION:
             # self.state = State.PATROL_NAVIGATE
             self.set_state(State.PATROL_NAVIGATE)
+
+    def y1(self, x):
+        return int(0.75 * x)
+
+    def y2(self, x):
+        return -1 * int(0.75 * x) + 480
+
+    def up_sector(self, x, y):
+        return y <= 240
+        # return y < self.y1(x) and y < self.y2(x)
+
+    def down_sector(self, x, y):
+        return y > 240
+        # return y >= self.y1(x) and y >= self.y2(x)
+
+    def right_sector(self, x, y):
+        return x > 320
+        # return self.y2(x) < y < self.y1(x)
+
+    def left_sector(self, x, y):
+        return x <= 320
+        # return self.y1(x) <= y <= self.y2(x)
 
     # def depth_image_callback(self, message):
     #     def convert_depth_image(ros_image):
@@ -337,11 +376,21 @@ class CopterController():
     #     self.target_local_debug.publish(cloud)
 
     def target_callback(self, message):
+        def is_in_net_range():
+            w_radius = 35
+            w_left = 320 - w_radius
+            w_right = 320 + w_radius
+            h_up = 240
+            h_down = 480
+            return w_left <= self.detection_pixel.x <= w_right and h_up <= self.detection_pixel.y <= h_down
+
         message = message.data.split()
         position = Point32(float(message[0]), float(message[1]), float(message[2]))
         if math.isnan(position.x):
             if self.consecutive_detections > 0:
                 self.consecutive_detections = 0
+            if self.state == State.PURSUIT and not is_in_net_range():
+                self.set_state(State.SEARCH)
         else:
             self.consecutive_detections += 1
             self.detection_pixel = Point32(int(message[3]), int(message[4]), 0)
