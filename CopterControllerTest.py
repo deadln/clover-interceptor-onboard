@@ -47,10 +47,10 @@ class CopterController():
         self.DETECTION_DIAPASON_SEC = 1.0
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([2.5, 0.5, 1.0])
+        self.low_left_corner = np.array([-2, -2, 0.0])
         self.up_right_corner = np.array([7.0, 4.5, 3.2])
         self.low_left_corner_restricted = np.array([0, 0, 0])
-        self.up_right_corner_restricted = np.array([2.0, 2.0, 3.2])
+        self.up_right_corner_restricted = np.array([0.0, 0.0, 0.0])
         self.base = None
         self.telemetry = None
         self.state = ""
@@ -87,17 +87,17 @@ class CopterController():
         telemetry = self.__get_telemetry__(frame_id=frame_id)
         return np.array([telemetry.x, telemetry.y, telemetry.z])
 
-    def navigate(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0.0, auto_arm=False, frame_id='aruco_map'):
-        self.__navigate__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
-
-    def set_position(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
-        self.__set_position__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
-
-    def set_velocity(self, target=np.array([0, 0, 0]), yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
-        self.__set_velocity__(vx=target[0], vy=target[1], vz=target[2], yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
-
-    def land(self):
-        return self.__land__()
+    # def navigate(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0.0, auto_arm=False, frame_id='aruco_map'):
+    #     self.__navigate__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
+    #
+    # def set_position(self, target=np.array([0, 0, 2]), speed=0.5, yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
+    #     self.__set_position__(x=target[0], y=target[1], z=target[2], speed=speed, yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
+    #
+    # def set_velocity(self, target=np.array([0, 0, 0]), yaw=float('nan'), yaw_rate=0, auto_arm=False, frame_id='aruco_map'):
+    #     self.__set_velocity__(vx=target[0], vy=target[1], vz=target[2], yaw=yaw, yaw_rate=yaw_rate, auto_arm=auto_arm, frame_id=frame_id)
+    #
+    # def land(self):
+    #     return self.__land__()
 
     def offboard_loop(self):
         self.takeoff()
@@ -121,9 +121,10 @@ class CopterController():
                     self.set_patrol_target()
                     rospy.loginfo(f"New patrol target {self.patrol_target}")
                 else:
+                    pass
                     # Полёт напрямую
                     # print("YAW", self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()) / (math.pi / 180))
-                    self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
+                    # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, self.patrol_target - self.get_position()))
                     # Полёт с вращением
                     # self.navigate(self.patrol_target, speed=self.PATROL_SPEED, yaw=float('nan'), yaw_rate=self.SPIN_RATE)
                 if self.is_navigate_target_reached(target=self.patrol_target):  # Argument: target=self.patrol_target
@@ -147,37 +148,38 @@ class CopterController():
                     error = self.pursuit_target + np.array([0, 0, 0.7]) - position
                     velocity = error / np.linalg.norm(error) * self.INTERCEPTION_SPEED
                     print(f"In pursuit. Interception velocity {velocity}")
-                    self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
+                    # self.set_velocity(velocity, yaw=self.get_yaw_angle(self.X_NORM, self.pursuit_target - self.get_position()))
 
             if self.state == State.SUSPICION:  # Проверка места, в котором с т.з. нейросети "мелькнул дрон"
                 suspicion_vector = self.suspicion_target - self.get_position()
                 suspicion_vector = suspicion_vector * ((np.linalg.norm(suspicion_vector) - 1) / np.linalg.norm(suspicion_vector))
                 suspicion_point = self.get_position() + suspicion_vector
-                self.navigate(suspicion_point, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, suspicion_point - self.get_position()))
+                # self.navigate(suspicion_point, speed=self.PATROL_SPEED, yaw=self.get_yaw_angle(self.X_NORM, suspicion_point - self.get_position()))
 
             if self.state == State.SEARCH:  # TODO: Поиск утерянной цели
-                self.navigate(self.get_position())
+                pass
+                # self.navigate(self.get_position())
 
             if self.state == State.RTB:  # Возвращение на базу
-                self.navigate_wait(self.base)
+                # self.navigate_wait(self.base)
                 rospy.signal_shutdown("Mission complete")
 
             rate.sleep()
 
     def takeoff(self):
-        self.set_velocity(np.array([0, 0, 0.2]), yaw=float('nan'), frame_id="body", auto_arm=True)
+        # self.set_velocity(np.array([0, 0, 0.2]), yaw=float('nan'), frame_id="body", auto_arm=True)
         # self.navigate(frame_id="", auto_arm = True)
         rospy.sleep(0.5)
         self.set_state(State.PATROL_NAVIGATE)
         rospy.loginfo("Takeoff complete")
 
-    def navigate_wait(self, target, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
-        self.navigate(target, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
-
-        while not rospy.is_shutdown():
-            if self.is_navigate_target_reached(tolerance):
-                break
-            rospy.sleep(0.2)
+    # def navigate_wait(self, target, yaw=float('nan'), speed=0.2, frame_id='aruco_map', auto_arm=False, tolerance=0.3):
+    #     self.navigate(target, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
+    #
+    #     while not rospy.is_shutdown():
+    #         if self.is_navigate_target_reached(tolerance):
+    #             break
+    #         rospy.sleep(0.2)
 
     def set_patrol_target(self):
         self.patrol_target = self.get_position()
@@ -202,7 +204,7 @@ class CopterController():
         velocity += np.array(list(map(int, position < self.low_left_corner)))
         velocity += np.array(list(map(int, position > self.up_right_corner))) * -1
         velocity *= self.INTERCEPTION_SPEED
-        self.set_velocity(velocity)
+        # self.set_velocity(velocity)
         rospy.logwarn(f"OUT OF PATROL ZONE. RETURN VECTOR {velocity}")
 
     def set_state(self, state):
