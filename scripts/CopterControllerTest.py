@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import rospy
 from clover import srv
-from std_srvs.srv import Trigger
 from std_msgs.msg import String
 from geometry_msgs.msg import Point32
 from cv_bridge import CvBridge

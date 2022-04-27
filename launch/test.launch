@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="clover-interceptor-onboard" name="copter_test" type="CopterControllerTest.py"/>
+</launch>

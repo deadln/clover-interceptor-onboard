@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="clover-interceptor-onboard" name="load_cell" type="LoadCellController.py"/>
+
+    <node pkg="clover-interceptor-onboard" name="copter" type="CopterController.py"/>
+</launch>

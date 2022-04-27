@@ -1,0 +1,2 @@
+cv-bridge
+RPi.GPIO
