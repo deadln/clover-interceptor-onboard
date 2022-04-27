@@ -3,59 +3,66 @@ import time
 import rospy
 from std_msgs.msg import Bool
 
-DT = 27
-SCK = 17
-DRONE_WEIGHT = 100
-WEIGHT_DELIMETER = 283
-
 node_name = "load_cell_node"
 
-def readCount():
-    i = 0
-    Count = 0
-    gpio.setup(DT, gpio.OUT)
-    gpio.setup(SCK, gpio.OUT)
-    gpio.output(DT, 1)
-    gpio.output(SCK, 0)
-    gpio.setup(DT, gpio.IN)
+class LoadCellController:
+    def __init__(self):
+        rospy.init_node(node_name)
+        rospy.loginfo(node_name + " started")
+        self.pub = rospy.Publisher("load_cell/weight", Bool, queue_size=10)
 
-    while gpio.input(DT) == 1:
+        self.DT = 27
+        self.SCK = 17
+        self.DRONE_WEIGHT = 100
+        self.WEIGHT_DELIMETER = 283
+
+    def readCount(self):
         i = 0
-    for i in range(24):
-        gpio.output(SCK, 1)
-        Count = Count << 1
+        Count = 0
+        gpio.setup(self.DT, gpio.OUT)
+        gpio.setup(self.SCK, gpio.OUT)
+        gpio.output(self.DT, 1)
+        gpio.output(self.SCK, 0)
+        gpio.setup(self.DT, gpio.IN)
 
-        gpio.output(SCK, 0)
-        # time.sleep(0.001)
-        if gpio.input(DT) == 0:
-            Count = Count + 1
+        while gpio.input(self.DT) == 1:
+            i = 0
+        for i in range(24):
+            gpio.output(self.SCK, 1)
+            Count = Count << 1
 
-    gpio.output(SCK, 1)
-    Count = Count ^ 0x800000
-    gpio.output(SCK, 0)
-    return Count
+            gpio.output(self.SCK, 0)
+            # time.sleep(0.001)
+            if gpio.input(self.DT) == 0:
+                Count = Count + 1
+
+        gpio.output(self.SCK, 1)
+        Count = Count ^ 0x800000
+        gpio.output(self.SCK, 0)
+        return Count
+
+    def run(self):
+        gpio.setmode(gpio.BCM)
+        sample = self.readCount()
+        try:
+            r = rospy.Rate(5)
+            while not rospy.is_shutdown():
+                count = self.readCount()
+                weight = (sample - count) / self.WEIGHT_DELIMETER
+                print(weight)
+                if weight >= self.DRONE_WEIGHT:
+                    self.pub.publish(True)
+                else:
+                    self.pub.publish(False)
+                r.sleep()
+        except KeyboardInterrupt:
+            rospy.signal_shutdown("Interrupted by keyboard")
 
 
 if __name__ == '__main__':
-    rospy.init_node(node_name)
-    rospy.loginfo(node_name + " started")
-    pub = rospy.Publisher("load_cell/weight", Bool, queue_size=10)
+    controller = LoadCellController()
+    controller.run()
 
-    gpio.setmode(gpio.BCM)
-    sample = readCount()
-    try:
-        r = rospy.Rate(5)
-        while not rospy.is_shutdown():
-            count = readCount()
-            weight = (sample - count) / WEIGHT_DELIMETER
-            print(weight)
-            if weight >= DRONE_WEIGHT:
-                pub.publish(True)
-            else:
-                pub.publish(False)
-            r.sleep()
-    except KeyboardInterrupt:
-        print("Stop")
 
 
 

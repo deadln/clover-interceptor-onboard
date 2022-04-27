@@ -13,7 +13,7 @@ r = rospy.Rate(5)
 while not rospy.is_shutdown():
     telemetry = get_telemetry(frame_id='aruco_map')
     print(telemetry.cell_voltage)
-    if telemetry.cell_voltage < 3.07:
+    if telemetry.cell_voltage < 3.1:
         land()
         rospy.signal_shutdown("Cell voltage is too low")
     telemetry_pub.publish(f"{telemetry.x} {telemetry.y} {telemetry.z} {telemetry.roll} {telemetry.pitch} {telemetry.yaw}")

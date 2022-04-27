@@ -195,6 +195,9 @@ class CopterController():
         self.navigate(target, yaw=yaw, speed=speed, frame_id=frame_id, auto_arm=auto_arm)
 
         while not rospy.is_shutdown():
+            if self.telemetry.cell_voltage < self.CRITICAL_CELL_VOLTAGE:
+                rospy.logfatal("CRITICAL CELL VOLTAGE: {}".format(self.telemetry.cell_voltage))
+                rospy.signal_shutdown("Cell voltage is too low")
             if self.is_navigate_target_reached(tolerance):
                 break
             rospy.sleep(0.2)
