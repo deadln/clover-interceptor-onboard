@@ -4,6 +4,7 @@ from clover import srv
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
 from geometry_msgs.msg import Point32
+from std_msgs.msg import Bool
 from cv_bridge import CvBridge
 
 import numpy as np
@@ -71,6 +72,7 @@ class CopterController():
         # rospy.Subscriber('drone_detection/target', String, self.target_callback)
         self.telemetry_pub = rospy.Publisher("/telemetry_topic", String, queue_size=10)
         rospy.Subscriber("drone_detection/target_position", String, self.target_callback)
+        rospy.Subscriber("load_cell/catch", Bool, self.catch_callback)
         # rospy.Subscriber('drone_detection/false_target', String, self.target_callback_test)  # TODO: протестировать реакцию на ложную цель
         # rospy.Subscriber('/camera/depth/image_rect_raw', Image, self.depth_image_callback)
 
@@ -429,10 +431,14 @@ class CopterController():
         self.pursuit_target = np.array(list(map(float, message)))
         self.state = 'pursuit'
 
+    def catch_callback(self, message):
+        self.set_state(State.RTB)
+
     def on_shutdown_cb(self):
         rospy.logwarn("shutdown")
         self.land()
         rospy.loginfo("landing complete")
+        exit(0)
 
 
 class State(Enum):

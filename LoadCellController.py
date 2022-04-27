@@ -9,7 +9,7 @@ class LoadCellController:
     def __init__(self):
         rospy.init_node(node_name)
         rospy.loginfo(node_name + " started")
-        self.pub = rospy.Publisher("load_cell/weight", Bool, queue_size=10)
+        self.pub = rospy.Publisher("load_cell/catch", Bool, queue_size=10)
 
         self.DT = 27
         self.SCK = 17
@@ -52,8 +52,8 @@ class LoadCellController:
                 print(weight)
                 if weight >= self.DRONE_WEIGHT:
                     self.pub.publish(True)
-                else:
-                    self.pub.publish(False)
+                # else:
+                #     self.pub.publish(False)
                 r.sleep()
         except KeyboardInterrupt:
             rospy.signal_shutdown("Interrupted by keyboard")
