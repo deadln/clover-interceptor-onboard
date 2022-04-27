@@ -45,10 +45,11 @@ class CopterController():
         self.PATROL_SPEED = 0.3
         self.INTERCEPTION_SPEED = 0.5
         self.DETECTION_DIAPASON_SEC = 1.0
+        self.PATROL_TARGET_BORDER_BIAS = 0.5
 
         # TODO: парсить данные о полётной зоне из txt или launch файла
-        self.low_left_corner = np.array([2.5, 0.5, 1.0])
-        self.up_right_corner = np.array([7.0, 4.5, 3.2])
+        self.low_left_corner = np.array([0.5, 0.5, 0.5])
+        self.up_right_corner = np.array([7.0, 4.8, 3.2])
         self.low_left_corner_restricted = np.array([0, 0, 0])
         self.up_right_corner_restricted = np.array([2.0, 2.0, 3.2])
         self.base = None
@@ -199,12 +200,14 @@ class CopterController():
             rospy.sleep(0.2)
 
     def set_patrol_target(self):
+        llc = self.low_left_corner + np.ones(3) * self.PATROL_TARGET_BORDER_BIAS
+        urc = self.up_right_corner - np.ones(3) * self.PATROL_TARGET_BORDER_BIAS
         self.patrol_target = self.get_position()
         while np.linalg.norm(self.patrol_target - self.get_position()) < np.linalg.norm(
-                self.low_left_corner - self.up_right_corner) / 3 and not self.is_inside_restricted_zone():
-            self.patrol_target = np.array([random.uniform(self.low_left_corner[0], self.up_right_corner[0]),
-                                           random.uniform(self.low_left_corner[1], self.up_right_corner[1]),
-                                           random.uniform(self.low_left_corner[2], self.up_right_corner[2])])
+                llc - urc) / 3 and not self.is_inside_restricted_zone():
+            self.patrol_target = np.array([random.uniform(llc[0], urc[0]),
+                                           random.uniform(llc[1], urc[1]),
+                                           random.uniform(llc[2], urc[2])])
 
     def get_yaw_angle(self, vector_1, vector_2):
         unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
@@ -450,5 +453,5 @@ if __name__ == '__main__':
 # TODO:
 # 1. Сделать запретную зону +
 # 2. Затестить обнаружение цели и перехват +
-# 3. Сделать поиск цели после потери
+# 3. Сделать поиск цели после потери +
 # 4. Сделать определение момента поимки цели и возврат на базу
