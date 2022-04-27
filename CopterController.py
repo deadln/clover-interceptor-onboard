@@ -164,6 +164,8 @@ class CopterController():
                     else:
                         yaw_rate = -self.SPIN_RATE
                         print("SPIN RIGHT")
+
+                    self.set_velocity(np.array([0, 0, 0.1]), yaw=float('nan'), yaw_rate=yaw_rate)
                 elif self.down_sector(self.detection_pixel.x, self.detection_pixel.y):
                     print("TARGET LOST AT DOWN SECTOR")
                     if self.left_sector(self.detection_pixel.x, self.detection_pixel.y):
@@ -172,7 +174,7 @@ class CopterController():
                     else:
                         yaw_rate = -self.SPIN_RATE
                         print("SPIN RIGHT")
-                self.set_velocity(np.array([0, 0, -0.2]), yaw=float('nan'), yaw_rate=yaw_rate)
+                    self.set_velocity(np.array([0, 0, -0.1]), yaw=float('nan'), yaw_rate=yaw_rate)
                 # self.navigate(self.get_position())
 
             if self.state == State.RTB:  # Возвращение на базу
